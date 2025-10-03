@@ -290,10 +290,15 @@ router.post('/planner/plan-day', async (req, res) => {
     // For each leg, derive an ETA hour at the destination of that leg and fetch weather
     for (const leg of timeline) {
       try {
-        if (!Number.isFinite(leg.eta_seconds) || !leg.to?.lat || !leg.to?.lon) continue;
+        if (!Number.isFinite(leg.eta_seconds)) continue;
+        // Handle both direct coords (origin/dest) and nested coords (POI)
+        const toLat = leg.to?.lat ?? leg.to?.loc?.lat;
+        const toLon = leg.to?.lon ?? leg.to?.loc?.lon;
+        if (!toLat || !toLon) continue;
+
         const etaDate = new Date(startIso);
         etaDate.setSeconds(etaDate.getSeconds() + Math.round(leg.eta_seconds));
-        const wx = await getHourlyWeather({ lat: leg.to.lat, lon: leg.to.lon, timeIso: etaDate.toISOString() });
+        const wx = await getHourlyWeather({ lat: toLat, lon: toLon, timeIso: etaDate.toISOString() });
         const comfort = comfortFromWeather(wx);
 
         leg.comfort = {
