@@ -3,6 +3,8 @@ import express from 'express';
 import { placesTextSearch, placeDetails } from '../src/providers/google-places.js';
 import { googleComputeRouteMatrix } from '../src/providers/google-matrix.js';
 import { searchAlongRoute } from './sar.js';
+import { getHourlyWeather } from '../src/ops/weather.js';
+import { comfortFromWeather } from '../src/ops/comfort.js';
 
 const router = express.Router();
 
@@ -274,6 +276,37 @@ router.post('/planner/plan-day', async (req, res) => {
           t.to.website = det.detail.websiteUri ?? null;
           enriched++;
         }
+      }
+    }
+
+    // === Step 8A: Comfort enrichment per leg ===
+    // Determine departure timestamp (ISO). If client provided date+start_time_local use that; else now.
+    const startIso = (() => {
+      const { date, start_time_local } = req.body || {};
+      if (date && start_time_local) return new Date(`${date}T${start_time_local}:00`).toISOString();
+      return new Date().toISOString();
+    })();
+
+    // For each leg, derive an ETA hour at the destination of that leg and fetch weather
+    for (const leg of timeline) {
+      try {
+        if (!Number.isFinite(leg.eta_seconds) || !leg.to?.lat || !leg.to?.lon) continue;
+        const etaDate = new Date(startIso);
+        etaDate.setSeconds(etaDate.getSeconds() + Math.round(leg.eta_seconds));
+        const wx = await getHourlyWeather({ lat: leg.to.lat, lon: leg.to.lon, timeIso: etaDate.toISOString() });
+        const comfort = comfortFromWeather(wx);
+
+        leg.comfort = {
+          uv_index: wx.uv_index,
+          wind_kmh: wx.wind_kmh,
+          precip_pct: wx.precip_pct,
+          feels_c: wx.feels_c,
+          tags: comfort.tags
+        };
+        leg.outfit_hint = comfort.hint;
+      } catch (e) {
+        // non-fatal; skip comfort on this leg
+        leg.comfort = { tags: [] };
       }
     }
 
