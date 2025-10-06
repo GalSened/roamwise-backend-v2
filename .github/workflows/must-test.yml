@@ -1,0 +1,42 @@
+name: MUST-TEST Backend API
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  BACKEND: https://roamwise-backend-v2-2t6n2rxiaa-uc.a.run.app
+
+jobs:
+  must-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Test API Route
+        run: ./scripts/test-api-route.sh
+
+      - name: Test API Matrix
+        run: ./scripts/test-api-matrix.sh
+
+      - name: Test API Places
+        run: ./scripts/test-api-places.sh
+
+      - name: Test Planner Day
+        run: ./scripts/test-planner-day.sh
+
+      - name: Test Admin Health
+        run: ./scripts/test-admin-health.sh
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "✅ All MUST-TEST scripts passed"
+          echo "Backend: $BACKEND"
