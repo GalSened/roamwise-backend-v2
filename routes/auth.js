@@ -54,7 +54,7 @@ router.post('/login', (req, res) => {
     const token = signToken(payload);
     setAuthCookie(res, token);
 
-    console.log('[Auth] User logged in:', user.username, 'tenant:', user.tenant_name);
+    req.log.info({ event: 'login', username: user.username, tenant: user.tenant_name }, 'User logged in');
 
     res.json({
       success: true,
@@ -66,7 +66,7 @@ router.post('/login', (req, res) => {
       }
     });
   } catch (error) {
-    console.error('[Auth] Login error:', error);
+    req.log.error({ err: error }, 'Login error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -77,7 +77,7 @@ router.post('/login', (req, res) => {
  */
 router.post('/logout', (req, res) => {
   clearAuthCookie(res);
-  console.log('[Auth] User logged out');
+  req.log.info({ event: 'logout' }, 'User logged out');
   res.json({ success: true });
 });
 
@@ -90,7 +90,7 @@ router.get('/tenants', (req, res) => {
     const tenants = getAllTenants();
     res.json({ tenants });
   } catch (error) {
-    console.error('[Auth] Get tenants error:', error);
+    req.log.error({ err: error }, 'Get tenants error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -109,7 +109,7 @@ router.get('/users/:tenantId', (req, res) => {
     const users = getUsersByTenant(tenantId);
     res.json({ users });
   } catch (error) {
-    console.error('[Auth] Get users error:', error);
+    req.log.error({ err: error }, 'Get users error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -1,8 +1,12 @@
 // backend/src/routes/family-auth.js
 import express from 'express';
 import { nanoid } from 'nanoid';
+import jwt from 'jsonwebtoken';
 import db from '../../db.js';
 import { toE164, maskPhone } from '../ops/phone.js';
+
+// Session secret for JWT signing (use environment variable in production)
+const SESSION_SECRET = process.env.SESSION_SECRET || 'roamwise-family-session-secret-change-in-production';
 
 const router = express.Router();
 
@@ -40,7 +44,7 @@ router.post('/signin/start', (req, res) => {
   const row = db.prepare('SELECT user_id, name FROM family_users WHERE phone_e164 = ?').get(e164);
   const known = !!row;
 
-  console.log(`[FAMILY-AUTH] start phone=${maskPhone(e164)} known=${known}`);
+  req.log.info({ event: 'family_auth_start', phone_masked: maskPhone(e164), known }, 'Family signin started');
 
   res.json({ ok: true, known, name: row?.name || null });
 });
@@ -71,20 +75,21 @@ router.post('/signin/finish', (req, res) => {
     // New user
     userId = nanoid(12);
     db.prepare('INSERT INTO family_users (phone_e164, name, user_id) VALUES (?, ?, ?)').run(e164, trimmedName, userId);
-    console.log(`[FAMILY-AUTH] new user created user_id=${userId} phone=${maskPhone(e164)}`);
+    req.log.info({ event: 'family_user_created', user_id: userId, phone_masked: maskPhone(e164) }, 'New family user created');
   } else {
     // Existing user - update name and timestamp
     userId = row.user_id;
     db.prepare('UPDATE family_users SET name = ?, updated_at = unixepoch() WHERE phone_e164 = ?').run(trimmedName, e164);
-    console.log(`[FAMILY-AUTH] existing user updated user_id=${userId} phone=${maskPhone(e164)}`);
+    req.log.info({ event: 'family_user_updated', user_id: userId, phone_masked: maskPhone(e164) }, 'Family user updated');
   }
 
-  // Set session cookie (Base64url-encoded JSON)
+  // Set session cookie (Signed JWT token)
   const sessionData = { userId, name: trimmedName, phone: maskPhone(e164) };
-  const cookieValue = Buffer.from(JSON.stringify(sessionData)).toString('base64url');
+  const token = jwt.sign(sessionData, SESSION_SECRET, { expiresIn: '365d' });
 
-  res.cookie('family_session', cookieValue, {
+  res.cookie('family_session', token, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     sameSite: 'Lax',
     maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
   });
@@ -92,18 +97,18 @@ router.post('/signin/finish', (req, res) => {
   res.json({ ok: true, user_id: userId });
 });
 
-// GET /api/me - get current session
+// GET /api/family/me - get current session
 router.get('/me', (req, res) => {
-  const cookie = req.cookies?.family_session;
-  if (!cookie) {
+  const token = req.cookies?.family_session;
+  if (!token) {
     return res.status(401).json({ ok: false, code: 'not_signed_in' });
   }
 
   try {
-    const json = Buffer.from(cookie, 'base64url').toString('utf-8');
-    const session = JSON.parse(json);
+    const session = jwt.verify(token, SESSION_SECRET);
     res.json({ ok: true, session });
   } catch (error) {
+    req.log.warn({ err: error }, 'Invalid family session token');
     res.status(401).json({ ok: false, code: 'invalid_session' });
   }
 });

@@ -88,21 +88,7 @@ app.use('/api/family', familyAuth);
 // Places routes (Google Places API)
 app.use(placesRoutes);
 
-// /api/me endpoint (uses family session cookie)
-app.get('/api/me', (req, res) => {
-  const cookie = req.cookies?.family_session;
-  if (!cookie) {
-    return res.status(401).json({ ok: false, code: 'not_signed_in' });
-  }
-
-  try {
-    const json = Buffer.from(cookie, 'base64url').toString('utf-8');
-    const session = JSON.parse(json);
-    res.json({ ok: true, session });
-  } catch (error) {
-    res.status(401).json({ ok: false, code: 'invalid_session' });
-  }
-});
+// Note: /api/me endpoint is handled by family-auth router at /api/family/me
 
 // 404 handler
 app.use((req, res) => {
@@ -128,6 +114,23 @@ try {
 }
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info({ port: PORT }, 'RoamWise Backend started');
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, closing server gracefully');
+  server.close(() => {
+    logger.info('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, closing server gracefully');
+  server.close(() => {
+    logger.info('Server closed');
+    process.exit(0);
+  });
 });

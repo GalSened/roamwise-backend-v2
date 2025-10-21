@@ -35,7 +35,7 @@ npm run dev
 npm start
 ```
 
-The server runs on **http://localhost:3000** by default.
+The server runs on **http://localhost:8080** by default (configurable via `PORT` environment variable).
 
 ## Database
 
@@ -229,7 +229,11 @@ See [OSRM-SETUP.md](./OSRM-SETUP.md) for instructions on running OSRM with Docke
 
 ## Environment Variables
 
-- `PORT` - Server port (default: 3000)
+See `.env.example` for a complete list of supported environment variables.
+
+Key variables:
+
+- `PORT` - Server port (default: 8080)
 - `JWT_SECRET` - Secret for JWT signing (default: dev secret, **change in production**)
 - `OSRM_URL` - OSRM server URL (default: http://localhost:5000)
 - `ROUTE_TIMEOUT_MS` - Route request timeout in milliseconds (default: 12000)
@@ -240,8 +244,6 @@ Example:
 ```bash
 PORT=3001 JWT_SECRET=your-secret-here OSRM_URL=http://localhost:5000 npm start
 ```
-
-See `.env.example` for a complete list of environment variables.
 
 ## Frontend Integration
 
@@ -287,12 +289,13 @@ For production deployment, add:
 ### Server won't start
 - Check Node.js version (18+ required)
 - Delete `node_modules` and run `npm install` again
-- Check port 3000 is not in use: `lsof -i :3000`
+- Check port 8080 is not in use: `lsof -i :8080`
+- Review environment variable validation errors in startup logs
 
 ### Frontend can't connect
-- Verify backend is running on port 3000
+- Verify backend is running on port 8080
 - Check browser console for CORS errors
-- Verify frontend is running on localhost:8080
+- Verify frontend is running on allowed origin (localhost:8080 or localhost:5173)
 
 ### Database issues
 - Delete `backend/roamwise.db` to reset (migrations will recreate)
