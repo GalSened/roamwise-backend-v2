@@ -1,3 +1,7 @@
+> [!WARNING]
+> **This repository has been deprecated and archived.** See [DEPRECATION.md](DEPRECATION.md) for details.  
+> All development has moved to: **https://github.com/GalSened/RoamWise**
+
 # RoamWise Backend
 
 Multi-tenant authentication and user profile backend for RoamWise (dev/home use).
